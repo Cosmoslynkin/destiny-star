@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>✨ 二十八星宿测算 ✨</title>
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -756,14 +757,17 @@
             daySelect.addEventListener('change', showConvertedSolar);
         }
         
-        // 更新农历日期选项
+        // 更新农历日期选项（使用库获取准确天数）
         function updateLunarDays() {
+            const year = parseInt(document.getElementById('lunarYear').value);
             const month = parseInt(document.getElementById('lunarMonth').value);
             const daySelect = document.getElementById('lunarDay');
-            if (!month) return;
+            if (!year || !month) return;
             
-            const daysInMonth = [29,30,29,30,29,30,29,30,30,29,30,29][month-1] || 30;
-            const currentDay = daySelect.value;
+            // 使用库获取该月的天数
+            const daysInMonth = getLunarDaysInMonth(year, month, false);
+            const currentDay = parseInt(daySelect.value) || 1;
+            
             daySelect.innerHTML = '<option value="">日期</option>';
             for (let day = 1; day <= daysInMonth; day++) {
                 const option = document.createElement('option');
@@ -771,60 +775,94 @@
                 option.textContent = day + '日';
                 daySelect.appendChild(option);
             }
-            if (currentDay && currentDay <= daysInMonth) daySelect.value = currentDay;
-        }
-        
-        // 农历新年日期表（1950-2030年春节的阳历日期）
-        const LUNAR_NEW_YEAR = {
-            1950: [2, 17], 1951: [2, 6], 1952: [1, 27], 1953: [2, 14], 1954: [2, 3],
-            1955: [1, 24], 1956: [2, 12], 1957: [1, 31], 1958: [2, 18], 1959: [2, 8],
-            1960: [1, 28], 1961: [2, 15], 1962: [2, 5], 1963: [1, 25], 1964: [2, 13],
-            1965: [2, 2], 1966: [1, 21], 1967: [2, 9], 1968: [1, 30], 1969: [2, 17],
-            1970: [2, 6], 1971: [1, 27], 1972: [2, 15], 1973: [2, 3], 1974: [1, 23],
-            1975: [2, 11], 1976: [1, 31], 1977: [2, 18], 1978: [2, 7], 1979: [1, 28],
-            1980: [2, 16], 1981: [2, 5], 1982: [1, 25], 1983: [2, 13], 1984: [2, 2],
-            1985: [2, 20], 1986: [2, 9], 1987: [1, 29], 1988: [2, 17], 1989: [2, 6],
-            1990: [1, 27], 1991: [2, 15], 1992: [2, 4], 1993: [1, 23], 1994: [2, 10],
-            1995: [1, 31], 1996: [2, 19], 1997: [2, 7], 1998: [1, 28], 1999: [2, 16],
-            2000: [2, 5], 2001: [1, 24], 2002: [2, 12], 2003: [2, 1], 2004: [1, 22],
-            2005: [2, 9], 2006: [1, 29], 2007: [2, 18], 2008: [2, 7], 2009: [1, 26],
-            2010: [2, 14], 2011: [2, 3], 2012: [1, 23], 2013: [2, 10], 2014: [1, 31],
-            2015: [2, 19], 2016: [2, 8], 2017: [1, 28], 2018: [2, 16], 2019: [2, 5],
-            2020: [1, 25], 2021: [2, 12], 2022: [2, 1], 2023: [1, 22], 2024: [2, 10],
-            2025: [1, 29], 2026: [2, 17]
-        };
-        
-        // 农历每月天数表（特定年份）
-        // 格式：{年份: [1-12月的天数, ...]}
-        const LUNAR_MONTH_DAYS = {
-            1977: [30, 29, 30, 29, 29, 30, 29, 30, 30, 29, 30, 29]  // 1977年实际农历月天数
-        };
-        
-        // 默认农历月天数（用于没有精确数据的年份）
-        const DEFAULT_MONTH_DAYS = [30, 29, 30, 29, 30, 29, 30, 30, 29, 30, 29, 30];
-        
-        // 更准确的农历转阳历
-        function lunarToSolar(year, month, day) {
-            const newYear = LUNAR_NEW_YEAR[year];
-            if (!newYear) return null;
             
-            const lunarNewYear = new Date(year, newYear[0] - 1, newYear[1]);
-            
-            // 获取该年的农历月天数表
-            const monthDays = LUNAR_MONTH_DAYS[year] || DEFAULT_MONTH_DAYS;
-            
-            let days = 0;
-            for (let i = 0; i < month - 1; i++) {
-                days += monthDays[i] || 30;
+            if (currentDay <= daysInMonth) {
+                daySelect.value = currentDay;
             }
-            days += day - 1;
-            
-            const result = new Date(lunarNewYear);
-            result.setDate(result.getDate() + days);
-            return result;
         }
         
-        // 显示转换后的阳历
+        // 使用 lunar-javascript 库进行精确的农历转阳历
+        function lunarToSolar(year, month, day, isLeap = false) {
+            try {
+                // 使用 Lunar.fromYmd 创建农历对象
+                let lunar = Lunar.fromYmd(year, month, day);
+                
+                // 如果是闰月，需要特殊处理
+                if (isLeap) {
+                    const leapMonth = lunar.getLeapMonth();
+                    if (leapMonth === month) {
+                        // 获取闰月日期
+                        lunar = Lunar.fromYmd(year, month, day);
+                    }
+                }
+                
+                const solar = lunar.getSolar();
+                return new Date(solar.getYear(), solar.getMonth() - 1, solar.getDay());
+            } catch (e) {
+                console.error('农历转换错误:', e);
+                return null;
+            }
+        }
+        
+        // 使用 lunar-javascript 库进行阳历转农历
+        function solarToLunar(date) {
+            try {
+                const solar = Solar.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate());
+                const lunar = solar.getLunar();
+                return {
+                    year: lunar.getYear(),
+                    month: lunar.getMonth(),
+                    day: lunar.getDay(),
+                    isLeap: lunar.getLeapMonth() === lunar.getMonth()
+                };
+            } catch (e) {
+                console.error('阳历转换错误:', e);
+                return { year: 1900, month: 1, day: 1, isLeap: false };
+            }
+        }
+        
+        // 获取农历年的闰月
+        function getLeapMonth(year) {
+            try {
+                const lunar = Lunar.fromYmd(year, 1, 1);
+                return lunar.getLeapMonth();
+            } catch (e) {
+                return 0;
+            }
+        }
+        
+        // 获取农历某月的天数
+        function getLunarDaysInMonth(year, month, isLeap = false) {
+            try {
+                const lunar = Lunar.fromYmd(year, month, 1);
+                if (isLeap) {
+                    const leapMonth = lunar.getLeapMonth();
+                    if (leapMonth === month) {
+                        // 获取闰月天数
+                        return Lunar.fromYmd(year, month, 1).getMonthDays();
+                    }
+                }
+                return lunar.getMonthDays();
+            } catch (e) {
+                return isLeap ? 29 : 30;
+            }
+        }
+        
+        // 获取干支年（使用库）
+        function getGanZhi(year) {
+            try {
+                const lunar = Lunar.fromYmd(year, 1, 1);
+                return lunar.getYearInGanZhi();
+            } catch (e) {
+                // 备用计算
+                const gan = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+                const zhi = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+                const offset = year - 1900 + 36;
+                return gan[offset % 10] + zhi[offset % 12];
+            }
+        }
+        
+        // 显示转换后的阳历（使用库）
         function showConvertedSolar() {
             const year = parseInt(document.getElementById('lunarYear').value);
             const month = parseInt(document.getElementById('lunarMonth').value);
@@ -836,10 +874,13 @@
                 return;
             }
             
-            const solarDate = lunarToSolar(year, month, day);
-            const dateStr = solarDate.getFullYear() + '年' + (solarDate.getMonth() + 1) + '月' + solarDate.getDate() + '日';
-            document.getElementById('convertedSolar').textContent = dateStr;
-            display.classList.add('show');
+            // 使用库进行精确转换
+            const solarDate = lunarToSolar(year, month, day, false);
+            if (solarDate) {
+                const dateStr = solarDate.getFullYear() + '年' + (solarDate.getMonth() + 1) + '月' + solarDate.getDate() + '日';
+                document.getElementById('convertedSolar').textContent = dateStr;
+                display.classList.add('show');
+            }
         }
         
         // 切换输入模式
@@ -861,24 +902,33 @@
             return 0;
         }
         
-        // 计算星宿
+        // 计算星宿（使用库进行精确转换）
         function calculateStar() {
             let starIndex;
+            let lunarYear, lunarMonth, lunarDay;
             
             if (currentMode === 'solar') {
                 const dateInput = document.getElementById('birthDate').value;
                 if (!dateInput) { alert('请先选择生日！'); return; }
                 const date = new Date(dateInput);
-                const month = date.getMonth() + 1;
-                const day = date.getDate();
-                starIndex = getStarByLunarDate(date.getFullYear(), month, day);
+                
+                // 使用库将阳历转为农历
+                const lunar = solarToLunar(date);
+                lunarYear = lunar.year;
+                lunarMonth = lunar.month;
+                lunarDay = lunar.day;
             } else {
-                const year = parseInt(document.getElementById('lunarYear').value);
-                const month = parseInt(document.getElementById('lunarMonth').value);
-                const day = parseInt(document.getElementById('lunarDay').value);
-                if (!year || !month || !day) { alert('请先选择完整的农历生日！'); return; }
-                starIndex = getStarByLunarDate(year, month, day);
+                lunarYear = parseInt(document.getElementById('lunarYear').value);
+                lunarMonth = parseInt(document.getElementById('lunarMonth').value);
+                lunarDay = parseInt(document.getElementById('lunarDay').value);
+                if (!lunarYear || !lunarMonth || !lunarDay) { 
+                    alert('请先选择完整的农历生日！'); 
+                    return; 
+                }
             }
+            
+            // 使用农历日期查询星宿
+            starIndex = getStarByLunarDate(lunarYear, lunarMonth, lunarDay);
             
             document.getElementById('inputSection').style.display = 'none';
             document.getElementById('loading').classList.add('show');
